@@ -12,7 +12,7 @@ classifier = pipeline(
 )
 # load the dataset
 dataset = load_dataset("asun17904/bank_examples")
-candidate_labels = ["finance", "river"]
+candidate_labels = ["money", "riverbed"]
 
 
 def classify_example(example, candidate_labels):
