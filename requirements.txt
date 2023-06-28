@@ -1,2 +1,4 @@
 nltk
 datasets
+gensim
+apache_beam
