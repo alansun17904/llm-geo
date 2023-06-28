@@ -2,3 +2,6 @@ nltk
 datasets
 gensim
 apache_beam
+transformers
+protobuf<=3.20.1
+optimum[onnxruntime]==1.2.0
