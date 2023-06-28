@@ -9,13 +9,13 @@ datasets.logging.set_verbosity_error()
 classifier = pipeline("zero-shot-classification", model="facebook/bart-large-mnli", device=0)
 # load the dataset
 dataset = load_dataset("asun17904/bank_examples")
-candidate_labels = ["finance", "river"]
+candidate_labels = ["money", "riverbed"]
 
 def classify_example(example, candidate_labels):
     labels = []
     results = classifier(example["soi"], candidate_labels)
-    for result in [v["scores"] for v in results]:
-        labels.append(candidate_labels[result.index(max(result))])
+    for result in [v["labels"] for v in results]:
+        labels.append(result[0])
     example["labels"] = labels
     return example
 

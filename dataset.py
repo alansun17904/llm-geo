@@ -55,7 +55,7 @@ if __name__ == '__main__':
     # get only the examples with the word "bank"
     bank_examples = wiki["train"].filter(lambda x: "bank" in x["text"].lower())
     no_bank = wiki["train"].filter(lambda x: "bank" not in x["text"].lower())
-
+    no_bank = wiki["train"].map(lambda x: separate_sentences(x))
     # get only the sentences with the word bank
     bank_examples = bank_examples.map(lambda x: extract_target_word_sentences(x, "bank"))
 
