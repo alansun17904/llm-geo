@@ -4,12 +4,16 @@ from transformers import pipeline
 from datasets import load_dataset
 
 import datasets
+
 datasets.logging.set_verbosity_error()
 
-classifier = pipeline("zero-shot-classification", model="facebook/bart-large-mnli", device=0)
+classifier = pipeline(
+    "zero-shot-classification", model="facebook/bart-large-mnli", device=0
+)
 # load the dataset
 dataset = load_dataset("asun17904/bank_examples")
-candidate_labels = ["money", "riverbed"]
+candidate_labels = ["finance", "river"]
+
 
 def classify_example(example, candidate_labels):
     labels = []

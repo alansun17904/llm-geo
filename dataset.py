@@ -5,7 +5,6 @@ from huggingface_hub import HfApi, Repository
 from transformers import AutoTokenizer
 
 
-
 def separate_sentences(example):
     """
     :example (named tuple): a single example from the dataset with the key "text"
@@ -43,7 +42,7 @@ def extract_target_word_sentences(example, target_word, case_sensitive=False):
     return example
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # assumes that the user has defined the environment variable HF_TOKEN
     token = os.environ["HF_TOKEN"]
     # download nltk packages
@@ -57,15 +56,18 @@ if __name__ == '__main__':
     no_bank = wiki["train"].filter(lambda x: "bank" not in x["text"].lower())
     no_bank = wiki["train"].map(lambda x: separate_sentences(x))
     # get only the sentences with the word bank
-    bank_examples = bank_examples.map(lambda x: extract_target_word_sentences(x, "bank"))
+    bank_examples = bank_examples.map(
+        lambda x: extract_target_word_sentences(x, "bank")
+    )
 
     # remove the column "text" from the bank examples since already separated into sentences
     bank_examples = bank_examples.remove_columns("text")
-    
+
     # check the total number of examples
-    print(f"Total number of `bank` sentences: {sum([len(x['soi']) for x in bank_examples])}")
+    print(
+        f"Total number of `bank` sentences: {sum([len(x['soi']) for x in bank_examples])}"
+    )
 
     # push the dataset to the hub
     bank_examples.push_to_hub("asun17904/bank_examples", token=token)
     no_bank.push_to_hub("asun17904/no_bank_examples", token=token)
-
