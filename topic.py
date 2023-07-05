@@ -11,7 +11,7 @@ classifier = pipeline(
     "zero-shot-classification", model="facebook/bart-large-mnli", device=0
 )
 # load the dataset
-dataset = load_dataset("asun17904/wikitext_bank_examples")
+dataset = load_dataset("asun17904/wiki2017_bank_examples")
 candidate_labels = ["finance", "river"]
 
 
@@ -26,4 +26,4 @@ def classify_example(example, candidate_labels):
 
 dataset = dataset.map(lambda x: classify_example(x, candidate_labels), batched=True)
 token = os.environ["HF_TOKEN"]
-dataset.push_to_hub("asun17904/wikitext_bank_examples_with_labels", token=token)
+dataset.push_to_hub("asun17904/wikitext2017_bank_examples_with_labels", token=token)
