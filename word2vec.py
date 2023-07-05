@@ -3,7 +3,9 @@ import nltk
 import json
 import tqdm
 import numpy as np
+from datetime import datetime
 from gensim.models import Word2Vec
+from gensim.models.callbacks import CallbackAny2Vec
 from datasets import load_dataset
 from nltk.corpus import stopwords
 
@@ -88,6 +90,19 @@ class Sentences:
     def __len__(self):
         return len(self.sentences)
 
+class EpochLogger(CallbackAny2Vec):
+    def __init__(self):
+        self.epoch = 0
+        self.time = 0
+
+    def on_epoch_begin(self, model):
+        print(f"Begin epoch: {self.epoch+1}")
+        self.time = datetime.now()
+
+    def on_epoch_end(self, model):
+        print(f"End epoch: {self.epoch+1}")
+        print(datetime.now() - self.time)
+        self.epoch += 1
 
 if __name__ == "__main__":
     nltk.download('stopwords')
@@ -98,14 +113,17 @@ if __name__ == "__main__":
         no_target_dataset, target_dataset, ratio=0, candidate_labels=["river"]
     )
     # store all of the initial sentences
-    json.dump(initial_sentences, open("initial_sentences.json", "w+"))
+    # json.dump(initial_sentences, open("initial_sentences.json", "w+"))
     # train the first word2vec model
+    for i in tqdm.tqdm(range(len(initial_sentences))):
+        initial_sentences[i] = process_text(initial_sentences[i])
     model, vecs, index2word = train_word2vec_model(
-        Sentences(initial_sentences), "w2v_0.model", vector_size=64,
-        workers=32
+        initial_sentences, "w2v256_0.model", vector_size=256,
+        workers=32,
+        callbacks=(EpochLogger(),)
     )
-    np.save(f"w2v_0.npy", vecs)
-    np.save(f"w2v_0_index2word.npy", index2word)
+    np.save(f"w2v256_0.npy", vecs)
+    np.save(f"w2v256_0_index2word.npy", index2word)
     for i, ratio in enumerate(traj):
         sentences = inject_sentences(
             target_dataset,
@@ -113,11 +131,14 @@ if __name__ == "__main__":
             prev_ratio=0 if i == 0 else traj[i - 1],
             candidate_labels=["river"],
         )
+        for j in tqdm.tqdm(range(len(sentences))):
+            sentences[j] = process_text(sentences[j])
         model, vecs, index2word = train_word2vec_model(
-            Sentences(sentences),
-            f"w2v_{i+1}.model",
+            sentences,
+            f"w2v256_{i+1}.model",
+            alpha=0.01,
             prev_model=model,
             workers=32
         )
-        np.save(f"w2v_{i+1}.npy", vecs)
-        np.save(f"w2v_{i+1}_index2word.npy", index2word)
+        np.save(f"w2v256_{i+1}.npy", vecs)
+        np.save(f"w2v256_{i+1}_index2word.npy", index2word)
