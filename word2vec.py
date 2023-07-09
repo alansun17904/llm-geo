@@ -31,7 +31,7 @@ def load_initial_sentences(
     print(f"Found a total of {total_target_sentences} target sentences!")
     threshold_sentences = int(total_target_sentences * ratio)
     count = 0
-    sentences = extract_sentences_from_ds(no_target_dataset, "sentences")
+    sentences = extract_sentences_from_ds(no_target_dataset, "section_texts")
     sentences += extract_sentences_from_ds(target_dataset, "other")
 
     # get all of the sentences that do have candidate labels
@@ -61,7 +61,7 @@ def process_text(text):
     tokens = [
         w.lower().strip() for w in tokens if w not in stopwords.words("english")
     ]
-    return tokens
+    return ' '.join(tokens)
 
 
 def train_word2vec_model(sentences, sname, prev_model=None, **kwargs):
@@ -85,7 +85,7 @@ class Sentences:
 
     def __iter__(self):
         for sentence in self.sentences:
-            yield process_text(sentence)
+            yield sentence
 
     def __len__(self):
         return len(self.sentences)
@@ -107,23 +107,23 @@ class EpochLogger(CallbackAny2Vec):
 if __name__ == "__main__":
     nltk.download('stopwords')
     traj = np.linspace(0.1, 1, 20)
-    target_dataset = load_dataset("asun17904/wikitext_bank_examples_with_labels", split="train")
-    no_target_dataset = load_dataset("asun17904/wikitext_no_bank_examples", split="train")
+    target_dataset = load_dataset("asun17904/wikitext2017_bank_examples_with_labels", split="train")
+    no_target_dataset = load_dataset("asun17904/wiki2017_no_bank_examples", split="train")
     initial_sentences = load_initial_sentences(
         no_target_dataset, target_dataset, ratio=0, candidate_labels=["river"]
     )
     # store all of the initial sentences
     # json.dump(initial_sentences, open("initial_sentences.json", "w+"))
     # train the first word2vec model
-    for i in tqdm.tqdm(range(len(initial_sentences))):
-        initial_sentences[i] = process_text(initial_sentences[i])
+    # for i in tqdm.tqdm(range(len(initial_sentences))):
+    #     initial_sentences[i] = process_text(initial_sentences[i])
     model, vecs, index2word = train_word2vec_model(
-        initial_sentences, "w2v256_0.model", vector_size=256,
-        workers=32,
+        initial_sentences, "w2v64_0.model", vector_size=64,
+        workers=128,
         callbacks=(EpochLogger(),)
     )
-    np.save(f"w2v256_0.npy", vecs)
-    np.save(f"w2v256_0_index2word.npy", index2word)
+    np.save(f"w2v64_0.npy", vecs)
+    np.save(f"w2v64_0_index2word.npy", index2word)
     for i, ratio in enumerate(traj):
         sentences = inject_sentences(
             target_dataset,
@@ -135,10 +135,10 @@ if __name__ == "__main__":
             sentences[j] = process_text(sentences[j])
         model, vecs, index2word = train_word2vec_model(
             sentences,
-            f"w2v256_{i+1}.model",
+            f"w2v64_{i+1}.model",
             alpha=0.01,
             prev_model=model,
-            workers=32
+            workers=64
         )
-        np.save(f"w2v256_{i+1}.npy", vecs)
-        np.save(f"w2v256_{i+1}_index2word.npy", index2word)
+        np.save(f"w2v64_{i+1}.npy", vecs)
+        np.save(f"w2v64_{i+1}_index2word.npy", index2word)
