@@ -13,32 +13,40 @@ from nltk.corpus import stopwords
 def extract_sentences_from_ds(dataset, key, separate=False):
     sentences = []
     for s in tqdm.tqdm(dataset[key], desc=f"Extracting sentences from column `{key}`"):
-        sentences += s if not separate else nltk.sent_tokenize(s)
+        sentences += nltk.sent_tokenize(s) if separate else s
     return sentences
 
 
 # load all the sentences
-def load_initial_sentences(
-    no_target_dataset, target_dataset, ratio=0.1, candidate_labels=None
-):
+def load_initial_sentences(no_target_dataset, target_dataset, candidate_labels=None):
+    """Loads the initial word2vec training dataset. This dataset is comprised of
+    all of the sentences which do not contain any of the target words, nor do they
+    conform to the candidate labels.
+
+    no_target_dataset -- the dataset which contains sentences that do not contain any
+    of the target words
+    target_dataset -- the dataset which contains sentences that do contain the target word
+    this dataset must have at least two columns: `other` and `soi` the former represents
+    all of the sentences which do not contain any target words, whereas the latter represents
+    all of the sentences which do contain the target words.
+    candidate_labels -- a list of labels which we want to inject during training.
+
+    """
     total_target_sentences = sum(
         [
             len(example["soi"])
             for example in target_dataset
-            if example["labels"] in candidate_labels
+            if example["labels"] not in candidate_labels
         ]
     )
     print(f"Found a total of {total_target_sentences} target sentences!")
-    threshold_sentences = int(total_target_sentences * ratio)
-    count = 0
     sentences = extract_sentences_from_ds(no_target_dataset, "section_texts")
     sentences += extract_sentences_from_ds(target_dataset, "other")
 
-    # get all of the sentences that do have candidate labels
-    for example in target_dataset:
-        if count < threshold_sentences and example["labels"] in candidate_labels:
-            sentences.extend(example["soi"])
-            count += len(example["soi"])
+    # get all of the sentences that do not have candidate labels
+    for example in tqdm.tqdm(target_dataset):
+        if example["labels"] not in candidate_labels:
+            sentences += example["soi"]
     return sentences
 
 
@@ -48,20 +56,19 @@ def inject_sentences(target_dataset, ratio=0.1, prev_ratio=0, candidate_labels=N
     print(f"Found a total of {total_target_sentences} target sentences!")
     prev_sentences = int(total_target_sentences * prev_ratio)
     threshold_sentences = int(total_target_sentences * ratio)
+    print(f"Injecting {threshold_sentences - prev_sentences} sentences!")
     return extract_sentences_from_ds(
         filtered_target[prev_sentences:threshold_sentences], "soi"
     )
 
 
-# remove numbers and special characters
-def process_text(text):
+def process_text(text: str):
+    """Removes numbers and special characters from the text."""
     text = re.sub("[^A-Za-z]+", " ", text)
     # also remove stop words
     tokens = nltk.word_tokenize(text)
-    tokens = [
-        w.lower().strip() for w in tokens if w not in stopwords.words("english")
-    ]
-    return ' '.join(tokens)
+    tokens = [w.lower().strip() for w in tokens if w not in stopwords.words("english")]
+    return " ".join(tokens)
 
 
 def train_word2vec_model(sentences, sname, prev_model=None, **kwargs):
@@ -90,6 +97,7 @@ class Sentences:
     def __len__(self):
         return len(self.sentences)
 
+
 class EpochLogger(CallbackAny2Vec):
     def __init__(self):
         self.epoch = 0
@@ -104,13 +112,18 @@ class EpochLogger(CallbackAny2Vec):
         print(datetime.now() - self.time)
         self.epoch += 1
 
+
 if __name__ == "__main__":
-    nltk.download('stopwords')
+    nltk.download("stopwords")
     traj = np.linspace(0.1, 1, 20)
-    target_dataset = load_dataset("asun17904/wikitext2017_bank_examples_with_labels", split="train")
-    no_target_dataset = load_dataset("asun17904/wiki2017_no_bank_examples", split="train")
+    target_dataset = load_dataset(
+        "asun17904/wikitext2017_bank_examples_with_labels", split="train"
+    )
+    no_target_dataset = load_dataset(
+        "asun17904/wiki2017_no_bank_examples", split="train"
+    )
     initial_sentences = load_initial_sentences(
-        no_target_dataset, target_dataset, ratio=0, candidate_labels=["river"]
+        no_target_dataset, target_dataset, candidate_labels=["river"]
     )
     # store all of the initial sentences
     # json.dump(initial_sentences, open("initial_sentences.json", "w+"))
@@ -118,9 +131,11 @@ if __name__ == "__main__":
     # for i in tqdm.tqdm(range(len(initial_sentences))):
     #     initial_sentences[i] = process_text(initial_sentences[i])
     model, vecs, index2word = train_word2vec_model(
-        initial_sentences, "w2v64_0.model", vector_size=64,
+        initial_sentences,
+        "w2v64_0.model",
+        vector_size=64,
         workers=128,
-        callbacks=(EpochLogger(),)
+        callbacks=(EpochLogger(),),
     )
     np.save(f"w2v64_0.npy", vecs)
     np.save(f"w2v64_0_index2word.npy", index2word)
@@ -131,14 +146,10 @@ if __name__ == "__main__":
             prev_ratio=0 if i == 0 else traj[i - 1],
             candidate_labels=["river"],
         )
-        for j in tqdm.tqdm(range(len(sentences))):
-            sentences[j] = process_text(sentences[j])
+        # for j in tqdm.tqdm(range(len(sentences))):
+        #     sentences[j] = process_text(sentences[j])
         model, vecs, index2word = train_word2vec_model(
-            sentences,
-            f"w2v64_{i+1}.model",
-            alpha=0.01,
-            prev_model=model,
-            workers=64
+            sentences, f"w2v64_{i+1}.model", alpha=0.01, prev_model=model, workers=64
         )
         np.save(f"w2v64_{i+1}.npy", vecs)
         np.save(f"w2v64_{i+1}_index2word.npy", index2word)
